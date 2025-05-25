@@ -20,3 +20,6 @@ echo  "bla"
 
 #export JAVA_HOME="/usr/pkg/java/sun-8"
 #export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$JAVA_HOME/jre/lib/amd64/server
+
+
+pip install mrjob
