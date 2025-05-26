@@ -1,3 +1,4 @@
+#!/usr/pkg/bin/python
 from pyspark.sql import SparkSession
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import DecisionTreeClassifier
@@ -6,11 +7,13 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 import sys
 import time
 
+
 # Step 1: Create Spark session
 spark = SparkSession.builder.appName("KDDDecisionTree").getOrCreate()
 
 # Step 2: Load data
-data_path = "hdfs:///user/chenxiao17/input/kdd.data"
+#data_path = "hdfs:///user/chenxiao17/input/kdd.data"
+data_path = "hdfs:///user/almeidshel/group/kdd.data"
 raw_data = spark.read.csv(data_path, inferSchema=True)
 
 # Step 3: Rename columns (41 features + 1 label)
@@ -28,17 +31,14 @@ columns = [
 df = raw_data.toDF(*columns)
 
 # Step 4: Encode string columns
-indexers = [
-    StringIndexer(inputCol=col, outputCol=col + "_idx")
-    for col in ["protocol_type", "service", "flag", "label"]
-]
+indexers = [ StringIndexer(inputCol=col, outputCol=col + "_idx", handleInvalid="keep") for col in ["protocol_type", "service", "flag"] ]
 
 # Step 5: Feature assembler
 feature_cols = [col for col in df.columns if col not in ("label", "protocol_type", "service", "flag")]
 feature_cols += ["protocol_type_idx", "service_idx", "flag_idx"]
 
 assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
-label_indexer = StringIndexer(inputCol="label", outputCol="indexed_label")
+label_indexer = StringIndexer(inputCol="label", outputCol="indexed_label", handleInvalid="keep")
 
 # Step 6: Classifier
 dt = DecisionTreeClassifier(labelCol="indexed_label", featuresCol="features", maxBins=128)
@@ -58,7 +58,7 @@ end = time.time()
 # Step 10: Predict and evaluate
 predictions = model.transform(test)
 evaluator = MulticlassClassificationEvaluator(
-    labelCol="label_idx", predictionCol="prediction", metricName="accuracy"
+    labelCol="indexed_label", predictionCol="prediction", metricName="accuracy"
 )
 accuracy = evaluator.evaluate(predictions)
 runtime = end - start
