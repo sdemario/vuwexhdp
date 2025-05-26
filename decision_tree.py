@@ -4,8 +4,12 @@ from pyspark.ml import Pipeline
 from pyspark.ml.classification import DecisionTreeClassifier
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+import pandas as pd
+
 import sys
 import time
+import random
 
 
 # Step 1: Create Spark session
@@ -46,24 +50,46 @@ dt = DecisionTreeClassifier(labelCol="indexed_label", featuresCol="features", ma
 # Step 7: Pipeline
 pipeline = Pipeline(stages=indexers + [assembler, label_indexer, dt])
 
-# Step 8: Train-test split (with seed)
-seed = int(sys.argv[1]) if len(sys.argv) > 1 else 42
-(train, test) = df.randomSplit([0.7, 0.3], seed=seed)
+def seed_run(seed=42):
+    # Step 8: Train-test split (with seed)
+    (train, test) = df.randomSplit([0.7, 0.3], seed=seed)
 
-# Step 9: Train
-start = time.time()
-model = pipeline.fit(train)
-end = time.time()
+    # Step 9: Train
+    start = time.time()
+    model = pipeline.fit(train)
+    end = time.time()
 
-# Step 10: Predict and evaluate
-predictions = model.transform(test)
-evaluator = MulticlassClassificationEvaluator(
-    labelCol="indexed_label", predictionCol="prediction", metricName="accuracy"
-)
-accuracy = evaluator.evaluate(predictions)
-runtime = end - start
+    # Step 10: Predict and evaluate
+    predictions = model.transform(test)
+    evaluator = MulticlassClassificationEvaluator(
+        labelCol="indexed_label", predictionCol="prediction", metricName="accuracy"
+    )
+    accuracy = evaluator.evaluate(predictions)
+    runtime = end - start
 
-print(f"Decision Tree - Seed {seed} - Accuracy: {accuracy:.4f}, Runtime: {runtime:.2f} sec")
+    print(f"Seed {seed} - Accuracy: {accuracy:.5f}, Runtime: {runtime:.2f} sec")
+    return {"seed": seed, "accuracy": accuracy, "runtime": runtime}
+
+
+results = []
+seeds = [random.randint(10, 100) for _ in range(10)]
+for seed in seeds:
+    results.append(seed_run(seed))
+
+print()
+print()
+print("Result - Decision Tree")
+print("----------------------")
+dfRes = pd.DataFrame(results)
+print(dfRes)
+
+print()
+print()
+print("Summary - Decision Tree")
+print("----------------------")
+stats = dfRes.agg(["mean", "min", "max", "std"])
+stats = stats.drop(columns="seed")
+print(stats)
+
 
 spark.stop()
-
